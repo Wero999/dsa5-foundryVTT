@@ -369,50 +369,7 @@ const createContextOptions = () => {
     return localize(game.combat?.isBrawling ? 'CHATCONTEXT.ApplyDamagePP' : 'CHATCONTEXT.ApplyDamage');
   };
 
-  const masterAttackOption = {
-    name: "CHATCONTEXT.masterAttackFailure", 
-    icon: '<i class="fas fa-skull"></i>',
-    condition: (li) => {
-        const message = getMessageFromLi(li);
-        
-        if (!game.user.isGM || !message) return false;
-
-        const data = message.flags.data;
-        if (!data) return false;
-
-        const type = data.preData?.source?.type || data.type; 
-        const mode = data.preData?.mode || data.mode;
-        
-        const isWeapon = ["meleeweapon", "rangeweapon"].includes(type);
-        const isAttack = mode === "attack";
-
-        if (!isWeapon || !isAttack) return false;
-
-        let successLevel = data.postData?.successLevel;
-        if (successLevel === undefined) successLevel = data.postData?.result?.successLevel;
-        
-        const isSuccessBool = data.postData?.result?.success || data.postData?.success;
-
-        if ((!successLevel || successLevel <= 0) && !isSuccessBool) return false;
-
-        const isCrit = (successLevel > 2) || data.postData?.result?.critical; 
-        const cost = isCrit ? 2 : 1;
-        
-        const setting = game.settings.get("dsa5", "masterschips");
-        const currentSchips = setting ? Number(setting.split("/")[0]) : 0;
-        
-        masterAttackOption.name = `${game.i18n.localize("CHATCONTEXT.masterAttackFailure")} (${cost} Meisterschip)`;
-
-        return currentSchips >= cost;
-    },
-    callback: (li) => {
-        const message = getMessageFromLi(li);
-        DiceDSA5.masterAttackFailure(message);
-    }
-  };
-
   const baseOptions = [
-    masterAttackOption,
     {
       name: 'CHATCONTEXT.hideData',
       icon: '<i class="fas fa-eye"></i>',
