@@ -500,8 +500,17 @@ export default class DiceDSA5 {
     }
   }
 
-  static async _rollConfirm() {
-    return await new Roll('1d20').evaluate();
+  static async _rollConfirm(actor, testData) {
+    let formula = '1d20';
+
+    if (actor && testData) {
+      const isWeaponRoll = ['meleeweapon', 'rangeweapon'].includes(testData.source?.type);
+      if (isWeaponRoll && SpecialabilityRulesDSA5.hasAbility(actor, "LocalizedIDs.phexcaerStyle")) {
+        formula = '2d20kl1';
+      }
+    }
+
+    return await new Roll(formula).evaluate();
   }
 
   static async _rollSingleD20(roll, res, id, modifier, testData, combatskill = '', multiplier = 1) {
@@ -726,7 +735,8 @@ export default class DiceDSA5 {
    */
   static async #performConfirmationRoll(isCrit, isBotch, adjustedRes, combatskill, actor, testData, id) {
     let rollConfirm = await DiceDSA5.manualRolls(
-      await DiceDSA5._rollConfirm(),
+      // NEU: actor und testData werden übergeben
+      await DiceDSA5._rollConfirm(actor, testData), 
       'confirmationRoll',
       testData.extra.options
     );
