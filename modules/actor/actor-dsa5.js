@@ -224,6 +224,21 @@ export default class Actordsa5 extends Actor {
       [DSATriggers.EVENTS.ROLL_DIALOG_RENDER]: {}
     };
   }
+  
+  prepareDerivedData() {
+    super.prepareDerivedData();
+
+    // Heroic Growth: Addiert den finalen KO-Wert auf die maximalen Lebenspunkte bei Kreaturen
+    const heroicGrowthName = game.i18n.localize("LocalizedIDs.heroicGrowth");
+    const hasHeroicGrowth = this.items.some(i => i.name === heroicGrowthName);
+    
+    if (this.type === 'creature' && hasHeroicGrowth) {
+      const koValue = this.system.characteristics?.ko?.value || 0;
+      if (this.system.status?.wounds) {
+        this.system.status.wounds.max += koValue;
+      }
+    }
+  }
 
   speedByMovementType(movementType) {
     switch (movementType) {
