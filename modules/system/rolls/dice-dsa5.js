@@ -500,17 +500,8 @@ export default class DiceDSA5 {
     }
   }
 
-  static async _rollConfirm(actor, testData) {
-    let formula = '1d20';
-
-    if (actor && testData) {
-      const isWeaponRoll = ['meleeweapon', 'rangeweapon'].includes(testData.source?.type);
-      if (isWeaponRoll && SpecialabilityRulesDSA5.hasAbility(actor, "LocalizedIDs.phexcaerStyle")) {
-        formula = '2d20kl1';
-      }
-    }
-
-    return await new Roll(formula).evaluate();
+  static async _rollConfirm() {
+    return await new Roll('1d20').evaluate();
   }
 
   static async _rollSingleD20(roll, res, id, modifier, testData, combatskill = '', multiplier = 1) {
@@ -735,8 +726,7 @@ export default class DiceDSA5 {
    */
   static async #performConfirmationRoll(isCrit, isBotch, adjustedRes, combatskill, actor, testData, id) {
     let rollConfirm = await DiceDSA5.manualRolls(
-      // NEU: actor und testData werden übergeben
-      await DiceDSA5._rollConfirm(actor, testData), 
+      await DiceDSA5._rollConfirm(),
       'confirmationRoll',
       testData.extra.options
     );
@@ -745,16 +735,41 @@ export default class DiceDSA5 {
     const confirmChange = getProperty(source, `system.${isCrit ? 'critConfirm' : 'botchConfirm'}`) || 0;
     let confirmResult = adjustedRes - Math.clamp(rollConfirm.total + confirmChange, 1, DICE_CONSTANTS.DICE.D20_FACES);
     let additionalDescription = '';
+    
+    let oldRolls = [];
+    let usedWeaponAptitude = false;
+    let usedPhexcaer = false;
 
     if (this.#shouldUseWeaponAptitude(actor, combatskill, confirmResult)) {
-      const oldRoll = rollConfirm.total;
+      oldRolls.push(rollConfirm.total);
+      usedWeaponAptitude = true;
       rollConfirm = await DiceDSA5.manualRolls(
         await DiceDSA5._rollConfirm(),
         'LocalizedIDs.weaponAptitude',
         testData.extra.options
       );
       confirmResult = adjustedRes - Math.clamp(rollConfirm.total + confirmChange, 1, DICE_CONSTANTS.DICE.D20_FACES);
-      additionalDescription = `, ${_loc('usedWeaponExpertise', { a: oldRoll, b: rollConfirm.total })}`;
+    }
+
+    if (this.#shouldUsePhexcaerStyle(actor, combatskill, confirmResult, testData)) {
+      oldRolls.push(rollConfirm.total);
+      usedPhexcaer = true;
+      rollConfirm = await DiceDSA5.manualRolls(
+        await DiceDSA5._rollConfirm(),
+        'LocalizedIDs.phexcaerStyle',
+        testData.extra.options
+      );
+      confirmResult = adjustedRes - Math.clamp(rollConfirm.total + confirmChange, 1, DICE_CONSTANTS.DICE.D20_FACES);
+    }
+
+    if (oldRolls.length > 0) {
+      let locKey = 'usedWeaponExpertise';
+      if (usedWeaponAptitude && usedPhexcaer) {
+        locKey = 'usedWeaponAndPhexcaer';
+      } else if (usedPhexcaer) {
+        locKey = 'usedPhexcaerStyle';
+      }
+      additionalDescription = `, ${_loc(locKey, { a: oldRolls.join('/'), b: rollConfirm.total })}`;
     }
 
     const color = game.dsa5.apps.DiceSoNiceCustomization.getAttributeConfiguration(id);
@@ -773,19 +788,22 @@ export default class DiceDSA5 {
     return { confirmed, additionalDescription, characteristics };
   }
 
-  /**
-   * Check if weapon aptitude should be used
-   * @param {Object} actor 
-   * @param {string} combatskill 
-   * @param {number} confirmResult 
-   * @returns {boolean}
-   */
   static #shouldUseWeaponAptitude(actor, combatskill, confirmResult) {
     return AdvantageRulesDSA5.hasVantage(
       actor,
       `${_loc('LocalizedIDs.weaponAptitude')} (${combatskill})`,
       false
     ) && confirmResult < 0;
+  }
+
+  static #shouldUsePhexcaerStyle(actor, combatskill, confirmResult, testData) {
+    if (confirmResult >= 0) return false;
+    
+    const isWeaponRoll = ['meleeweapon', 'rangeweapon'].includes(testData.source?.type);
+    return isWeaponRoll && combatskill !== "" && SpecialabilityRulesDSA5.hasAbility(
+      actor, 
+      "LocalizedIDs.phexcaerStyle"
+    );
   }
 
   /**
